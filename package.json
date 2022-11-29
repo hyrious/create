@@ -1,0 +1,17 @@
+{
+  "name": "@hyrious/create",
+  "version": "0.1.0",
+  "description": "Opinionated js project template by hyrious",
+  "keywords": [
+    "template"
+  ],
+  "license": "MIT",
+  "author": "hyrious <hyrious@outlook.com>",
+  "type": "module",
+  "exports": "./index.js",
+  "bin": "cli.js",
+  "dependencies": {
+    "sade": "^1.8.1",
+    "sort-package-json": "^2.1.0"
+  }
+}
