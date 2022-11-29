@@ -140,7 +140,7 @@ sade('@hyrious/create', true)
     }
 
     // .gitignore
-    fs.appendFileSync('.gitignore', `node_modules\n`)
+    fs.appendFileSync('.gitignore', `node_modules\ndist\n`)
 
   })
   .parse(process.argv)
