@@ -1,146 +1,169 @@
 #!/usr/bin/env node
 import sade from 'sade'
 import fs from 'node:fs'
-import os from 'node:os'
-import cp from 'node:child_process'
+import path from 'node:path'
 import sort_package_json from 'sort-package-json'
 
+// Base files:
+//    .gitignore
+//       node_modules
+//       dist             // if no '--js', i.e. use ts
+//    package.json
+//       {type: module}   // if no '--dual', use ESM only
+//       @hyrious/configs // if no '--js'
+//       vite             // if '--vite'
+//
+// If '--js', add:
+//    lib/
+//    index.js
+//    cli.js              // if '--cli'
+//    pkg.cli = cli.js
+//    pkg.files = [lib, *.js]
+// otherwise:
+//    src/index.ts
+//    src/cli.ts          // if '--cli'
+//    tsconfig.json       // apply '@hyrious/configs/tsconfig.casual.json'
+//    pkg.cli = dist/cli.js
+//    pkg.files = [src, dist]
+//
+// If '--vite', add:
+//    main.{js,ts}        // '.js' if '--js' else '.ts'
+//    index.html
+//
+// If '--public', add:
+//    .github/workflows/npm-publish.yml
+//
+// At the end, show guides:
+//    Run `npx @hyrious/license` to create a LICENSE.txt.
+//    If you need Prettier or ESLint, install them on your own.
+//    Currently no build tool, choose tsup, rollup or whatever.
 sade('@hyrious/create', true)
   .version(JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version)
+  .option('--js', 'Use JavaScript', false)
+  .option('--cli', 'Add CLI entry point', false)
+  .option('--vite', 'Install Vite', false)
+  .option('--dual', 'Use ESM + CJS', false)
+  .option('--public', 'Add workflows', false)
   .describe('Create a new project.')
-  .option('--prettier', 'Use Prettier', false)
-  .option('--eslint', 'Use @antfu/eslint-config', false)
-  .option('--typescript', 'Use TypeScript', false)
-  .option('--dual', 'This is not an ESM-only package', false)
   .action(function hyrious_create_package(opts) {
-    if (opts.prettier && opts.eslint) {
-      throw new Error('Cannot use both prettier and eslint.')
-    }
-
-    if (opts.dual && !opts.typescript) {
-      throw new Error('dual option requires typescript.')
-    }
-
     const cwd = process.cwd()
     if (fs.readdirSync(cwd).filter(e => e[0] !== '.').length > 0) {
       throw new Error('Current directory is not empty.')
     }
-    const basename = cwd.split('/').pop()
 
+    const writeFile = (name, data) => {
+      console.log('create', name)
+      fs.writeFileSync(name, data)
+    }
+
+    const name = path.basename(cwd)
+
+    writeFile('.gitignore', opts.js ? 'node_modules\n' : 'node_modules\ndist\n')
     const pkg = {
-      "name": `@hyrious/${basename}`,
+      "name": `@hyrious/${name}`,
       "version": "0.1.0",
-      "description": basename,
-      "keywords": [],
-      "license": "MIT",
+      "description": name,
       "author": "hyrious <hyrious@outlook.com>",
+      "license": "MIT",
+      "repository": `hyrious/${name}`,
+      "keywords": [],
+      "devDependencies": {},
     }
 
     if (opts.dual) {
-      pkg.main = 'dist/index.js'
-      pkg.module = 'dist/index.mjs'
-      pkg.types = 'dist/index.d.ts'
+      if (opts.js) {
+        console.warn('[warning] --dual will have no effect when --js')
+      }
     } else {
       pkg.type = 'module'
-      pkg.exports = './index.js'
     }
 
-    function latest_version(name) {
-      const cmd = os.platform() === 'win32' ? 'npm.cmd' : 'npm'
-      return cp.spawnSync(cmd, ['view', name, 'version'], { shell: true, encoding: 'utf8' }).stdout.trim()
-    }
-
-    const scripts = {}
-    function set_script(name, cmd) {
-      scripts[name] = cmd
-    }
-
-    const devDependencies = {}
-    function save_dev(name) {
-      devDependencies[name] = '^' + latest_version(name)
-    }
-    if (opts.prettier) {
-      save_dev('prettier')
-      set_script('format', 'prettier -w .')
-    }
-    if (opts.eslint) {
-      save_dev('eslint'), save_dev('@antfu/eslint-config')
-      set_script('lint', 'eslint .')
-    }
-    if (opts.typescript) {
-      save_dev('typescript'), save_dev('tsup')
-      set_script('build', `tsup src/index.ts${opts.dual ? ' --format esm,cjs' : ''} --clean --treeshake --target esnext --dts`)
-    }
-
-    if (Object.keys(scripts).length > 0)
-      pkg.scripts = scripts
-
-    if (Object.keys(devDependencies).length > 0)
-      pkg.devDependencies = devDependencies
-    
-    fs.writeFileSync('package.json', JSON.stringify(sort_package_json(pkg), null, 2) + '\n')
-
-    // enable prettier in .vscode/settings
-    if (opts.prettier) {
-      fs.mkdirSync('.vscode')
-      fs.writeFileSync('.vscode/settings.json', JSON.stringify({
-        "editor.formatOnSave": true,
-        "editor.defaultFormatter": "esbenp.prettier-vscode",
-        "prettier.enable": true,
-      }, null, 2) + '\n')
-    }
-
-    // enable eslint in .vscode/settings and .eslintrc
-    if (opts.eslint) {
-      fs.mkdirSync('.vscode')
-      fs.writeFileSync('.vscode/settings.json', JSON.stringify({
-        "editor.codeActionsOnSave": {
-          "source.fixAll.eslint": true,
-        },
-        "eslint.enable": true,
-        "eslint.validate": [
-          "javascript",
-          "typescript",
-          "javascriptreact",
-          "typescriptreact",
-          "vue",
-          "html",
-          "markdown",
-          "json",
-          "jsonc",
-          "json5"
-        ],
-      }, null, 2) + '\n')
-      fs.writeFileSync('.eslintrc', JSON.stringify({
-        extends: '@antfu'
-      }, null, 2) + '\n')
-    }
-
-    // initial tsconfig.json
-    if (opts.typescript) {
-      fs.mkdirSync('src')
-      fs.writeFileSync('src/index.ts', `export function hello() {}\n`)
-      fs.writeFileSync('tsconfig.json', JSON.stringify({
-        "include": ["src"],
-        "compilerOptions": {
-          "noEmit": true,
-          "target": "esnext",
-          "module": "esnext",
-          "lib": ["esnext"],
-          "moduleResolution": "node",
-          "esModuleInterop": true,
-          "strict": true,
-          "resolveJsonModule": true,
-          "skipLibCheck": true,
-          "stripInternal": true,
-        }
-      }, null, 2) + '\n')
+    if (opts.js) {
+      fs.mkdirSync('lib', { recursive: true })
+      writeFile('index.js', 'export let a = 1\n')
+      if (opts.cli) {
+        writeFile('cli.js', '#!/usr/bin/env node\nconsole.log(1)\n')
+        pkg.bin = 'cli.js'
+      }
+      pkg.files = ['lib', '*.js']
     } else {
-      fs.writeFileSync('index.js', `export function hello() {}\n`)
+      fs.mkdirSync('src', { recursive: true })
+      writeFile('src/index.ts', 'export let a = 1\n')
+      if (opts.cli) {
+        writeFile('src/cli.ts', 'console.log(1)\n')
+        pkg.bin = 'dist/cli.js'
+      }
+      pkg.main = 'dist/index.js'
+      if (opts.dual) {
+        pkg.module = 'dist/index.mjs'
+      }
+      pkg.types = 'dist/index.d.ts'
+      pkg.files = ['dist', 'src']
+      pkg.devDependencies['@hyrious/configs'] = '*'
+      writeFile('tsconfig.json', `{
+  "include": ["src"],
+  "extends": "@hyrious/configs/tsconfig.casual.json"
+}\n`)
     }
 
-    // .gitignore
-    fs.appendFileSync('.gitignore', `node_modules\ndist\n`)
+    writeFile('package.json', JSON.stringify(sort_package_json(pkg), null, 2) + '\n')
 
+    if (opts.vite) {
+      const main = opts.js ? 'main.js' : 'main.ts'
+      writeFile(main, 'console.log(1)\n')
+      writeFile('index.html', `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test</title>
+</head>
+<body>
+  <script type="module" src="/${main}"></script>
+</body>
+</html>\n`)
+    }
+
+    if (opts.public) {
+      fs.mkdirSync('.github/workflows', { recursive: true })
+      writeFile('.github/workflows/npm-publish.yml', `name: Node.js Package
+
+on:
+  push:
+    tags: "*"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: \${{ github.workflow }}-\${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: latest
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+          cache: pnpm
+      - run: |
+          pnpm install
+          pnpm build
+      - run: pnpm publish --provenance --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: \${{ secrets.NPM_TOKEN }}\n`)
+    }
+
+    console.log()
+    console.log('next steps:')
+    console.log('npx @hyrious/license     # create LICENSE.txt, remember to update pkg.license')
+    console.log('npm i -D esbuild         # define your build tool')
+    console.log('npm i -D eslint prettier # define your linter / formatter')
   })
   .parse(process.argv)

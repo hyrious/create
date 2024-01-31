@@ -1,17 +1,22 @@
 {
   "name": "@hyrious/create",
+  "type": "module",
   "version": "0.1.0",
-  "description": "Opinionated js project template by hyrious",
+  "description": "Opinionated js/ts project template by hyrious",
+  "author": "hyrious <hyrious@outlook.com>",
+  "license": "MIT",
+  "repository": "hyrious/create",
   "keywords": [
     "template"
   ],
-  "license": "MIT",
-  "author": "hyrious <hyrious@outlook.com>",
-  "type": "module",
   "exports": "./index.js",
   "bin": "cli.js",
+  "files": [
+    "cli.js",
+    "index.js"
+  ],
   "dependencies": {
     "sade": "^1.8.1",
-    "sort-package-json": "^2.1.0"
+    "sort-package-json": "^2.7.0"
   }
 }
