@@ -3,6 +3,7 @@ import sade from 'sade'
 import fs from 'node:fs'
 import path from 'node:path'
 import sort_package_json from 'sort-package-json'
+import latest_version from 'latest-version'
 
 // Base files:
 //    .gitignore
@@ -45,7 +46,7 @@ sade('@hyrious/create', true)
   .option('--dual', 'Use ESM + CJS', false)
   .option('--public', 'Add workflows', false)
   .describe('Create a new project.')
-  .action(function hyrious_create_package(opts) {
+  .action(async function hyrious_create_package(opts) {
     const cwd = process.cwd()
     if (fs.readdirSync(cwd).filter(e => e[0] !== '.').length > 0) {
       throw new Error('Current directory is not empty.')
@@ -72,7 +73,7 @@ sade('@hyrious/create', true)
 
     if (opts.dual) {
       if (opts.js) {
-        console.warn('[warning] --dual will have no effect when --js')
+        console.warn('[warning] --dual has no effect with --js')
       }
     } else {
       pkg.type = 'module'
@@ -106,9 +107,8 @@ sade('@hyrious/create', true)
 }\n`)
     }
 
-    writeFile('package.json', JSON.stringify(sort_package_json(pkg), null, 2) + '\n')
-
     if (opts.vite) {
+      pkg.devDependencies['vite'] = '*'
       const main = opts.js ? 'main.js' : 'main.ts'
       writeFile(main, 'console.log(1)\n')
       writeFile('index.html', `<!DOCTYPE html>
@@ -123,6 +123,18 @@ sade('@hyrious/create', true)
 </body>
 </html>\n`)
     }
+
+    if (Object.keys(pkg.devDependencies).length > 0) {
+      const tasks = []
+      for (const key in pkg.devDependencies) {
+        tasks.push(latest_version(key).then(version => {
+          pkg.devDependencies[key] = '^' + version
+        }))
+      }
+      await Promise.allSettled(tasks)
+    }
+
+    writeFile('package.json', JSON.stringify(sort_package_json(pkg), null, 2) + '\n')
 
     if (opts.public) {
       fs.mkdirSync('.github/workflows', { recursive: true })
@@ -162,8 +174,8 @@ jobs:
 
     console.log()
     console.log('next steps:')
-    console.log('npx @hyrious/license     # create LICENSE.txt, remember to update pkg.license')
-    console.log('npm i -D esbuild         # define your build tool')
-    console.log('npm i -D eslint prettier # define your linter / formatter')
+    console.log('npx @hyrious/license mit # Create LICENSE.txt, remember to update pkg.license')
+    console.log('npm i -D esbuild         # Define your build tool')
+    console.log('npm i -D eslint prettier # Define your linter / formatter')
   })
   .parse(process.argv)
