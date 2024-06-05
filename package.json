@@ -1,7 +1,7 @@
 {
   "name": "@hyrious/create",
   "type": "module",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Opinionated js/ts project template by hyrious",
   "author": "hyrious <hyrious@outlook.com>",
   "license": "MIT",
