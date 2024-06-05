@@ -156,7 +156,7 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v3
+      - uses: pnpm/action-setup@v4
         with:
           version: latest
       - uses: actions/setup-node@v4
@@ -171,6 +171,14 @@ jobs:
         env:
           NODE_AUTH_TOKEN: \${{ secrets.NPM_TOKEN }}\n`)
     }
+
+    writeFile('README.md', `# @hyrious/${name}
+
+${name}.
+
+## License
+
+MIT @ [hyrious](https://github.com/hyrious)\n`)
 
     console.log()
     console.log('next steps:')
