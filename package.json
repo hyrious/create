@@ -16,8 +16,8 @@
     "index.js"
   ],
   "dependencies": {
-    "latest-version": "^9.0.0",
     "sade": "^1.8.1",
-    "sort-package-json": "^2.7.0"
-  }
+    "sort-package-json": "^2.10.0"
+  },
+  "packageManager": "pnpm@9.5.0"
 }

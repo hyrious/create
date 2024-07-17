@@ -3,7 +3,6 @@ import sade from 'sade'
 import fs from 'node:fs'
 import path from 'node:path'
 import sort_package_json from 'sort-package-json'
-import latest_version from 'latest-version'
 
 // Base files:
 //    .gitignore
@@ -99,7 +98,7 @@ sade('@hyrious/create', true)
         pkg.module = 'dist/index.mjs'
       }
       pkg.types = 'dist/index.d.ts'
-      pkg.files = ['dist', 'src']
+      pkg.files = ['src', 'dist']
       pkg.devDependencies['@hyrious/configs'] = '*'
       writeFile('tsconfig.json', `{
   "include": ["src"],
@@ -123,18 +122,6 @@ sade('@hyrious/create', true)
 </body>
 </html>\n`)
     }
-
-    if (Object.keys(pkg.devDependencies).length > 0) {
-      const tasks = []
-      for (const key in pkg.devDependencies) {
-        tasks.push(latest_version(key).then(version => {
-          pkg.devDependencies[key] = '^' + version
-        }))
-      }
-      await Promise.allSettled(tasks)
-    }
-
-    writeFile('package.json', JSON.stringify(sort_package_json(pkg), null, 2) + '\n')
 
     if (opts.public) {
       fs.mkdirSync('.github/workflows', { recursive: true })
@@ -179,6 +166,47 @@ ${name}.
 ## License
 
 MIT @ [hyrious](https://github.com/hyrious)\n`)
+
+    if (Object.keys(pkg.devDependencies).length > 0) {
+      console.info('resolving', Object.keys(pkg.devDependencies))
+
+      // https://github.com/antfu/fast-npm-meta#-resolve-multiple-packages
+      const latestVersions = async (names) => {
+        const payload = names.map(name => encodeURIComponent(name)).join('+')
+        const response = await fetch('https://npm.antfu.dev/' + payload)
+        const data = await response.json()
+        if (response.ok) {
+          return data.reduce((deps, a) => { deps[a.name] = `^${a.version}`; return deps }, {})
+        } else {
+          console.warn(data && data.message || data || 'failed to fetch npm.antfu.dev')
+          return latestVersionsFallback(names)
+        }
+      }
+
+      // https://www.jsdelivr.com/docs/data.jsdelivr.com#get-/v1/packages/npm/-package-/resolved
+      const latestVersionsFallback = async (names) => {
+        const tasks = [], deps = {}
+        for (const name of names) {
+          tasks.push(fetch(`https://data.jsdelivr.com/v1/packages/npm/${name}/resolved`)
+            .then(r => r.json())
+            .then(a => { deps[a.name] = `^${a.version}` }))
+        }
+        await Promise.allSettled(tasks)
+        return deps
+      }
+
+      const versions = await latestVersions(Object.keys(pkg.devDependencies))
+      Object.assign(pkg.devDependencies, versions)
+
+      // Check if done right
+      for (const name in pkg.devDependencies) {
+        if (pkg.devDependencies[name] == '*') {
+          console.warn('failed to resolve dependency', name)
+        }
+      }
+    }
+
+    writeFile('package.json', JSON.stringify(sort_package_json(pkg), null, 2) + '\n')
 
     console.log()
     console.log('next steps:')
