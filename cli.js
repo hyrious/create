@@ -176,7 +176,11 @@ MIT @ [hyrious](https://github.com/hyrious)\n`)
         const response = await fetch('https://npm.antfu.dev/' + payload)
         const data = await response.json()
         if (response.ok) {
-          return data.reduce((deps, a) => { deps[a.name] = `^${a.version}`; return deps }, {})
+          if (Array.isArray(data)) {
+            return data.reduce((deps, a) => { deps[a.name] = `^${a.version}`; return deps }, {})
+          } else {
+            return { [data.name]: `^${data.version}` }
+          }
         } else {
           console.warn(data && data.message || data || 'failed to fetch npm.antfu.dev')
           return latestVersionsFallback(names)
