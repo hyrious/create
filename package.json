@@ -16,8 +16,8 @@
     "index.js"
   ],
   "dependencies": {
-    "sade": "^1.8.1",
-    "sort-package-json": "^2.10.0"
+    "@hyrious/sort-package-json": "^0.1.0",
+    "sade": "^1.8.1"
   },
   "packageManager": "pnpm@9.5.0"
 }

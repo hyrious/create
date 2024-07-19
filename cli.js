@@ -2,7 +2,7 @@
 import sade from 'sade'
 import fs from 'node:fs'
 import path from 'node:path'
-import sort_package_json from 'sort-package-json'
+import { sortJSON } from '@hyrious/sort-package-json'
 
 // Base files:
 //    .gitignore
@@ -33,22 +33,23 @@ import sort_package_json from 'sort-package-json'
 // If '--public', add:
 //    .github/workflows/npm-publish.yml
 //
-// At the end, show guides:
-//    Run `npx @hyrious/license` to create a LICENSE.txt.
-//    If you need Prettier or ESLint, install them on your own.
-//    Currently no build tool, choose tsup, rollup or whatever.
 sade('@hyrious/create', true)
   .version(JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version)
   .option('--js', 'Use JavaScript', false)
   .option('--cli', 'Add CLI entry point', false)
+  .option('--npm', 'Use npm instead of pnpm', false)
   .option('--vite', 'Install Vite', false)
   .option('--dual', 'Use ESM + CJS', false)
+  .option('--author', 'Set the "author" field', 'hyrious <hyrious@outlook.com>')
   .option('--public', 'Add workflows', false)
+  .option('--corepack', 'Use corepack, only work without --npm', false)
   .describe('Create a new project.')
   .action(async function hyrious_create_package(opts) {
     const cwd = process.cwd()
     if (fs.readdirSync(cwd).filter(e => e[0] !== '.').length > 0) {
-      throw new Error('Current directory is not empty.')
+      console.error('Current directory is not empty.')
+      process.exitCode = 1
+      return
     }
 
     const writeFile = (name, data) => {
@@ -58,24 +59,39 @@ sade('@hyrious/create', true)
 
     const name = path.basename(cwd)
 
+    let index = opts.author.indexOf('<')
+    if (index < 0) index = opts.author.indexOf('(')
+    if (index < 0) index = opts.author.length
+    const user = opts.author.slice(0, index).trimEnd()
+    const userLower = user.toLowerCase()
+
     writeFile('.gitignore', opts.js ? 'node_modules\n' : 'node_modules\ndist\n')
+
     const pkg = {
-      "name": `@hyrious/${name}`,
+      "name": `@${userLower}/${name}`,
       "version": "0.1.0",
       "description": name,
-      "author": "hyrious <hyrious@outlook.com>",
+      "author": opts.author,
       "license": "MIT",
-      "repository": `hyrious/${name}`,
-      "keywords": [],
+      "repository": `${userLower}/${name}`,
+      "keywords": name.split('-'),
       "devDependencies": {},
     }
 
     if (opts.dual) {
       if (opts.js) {
-        console.warn('[warning] --dual has no effect with --js')
+        console.warn('--dual has no effect with --js')
       }
     } else {
       pkg.type = 'module'
+    }
+
+    if (opts.corepack) {
+      if (opts.npm) {
+        console.warn('--corepack has no effect with --npm')
+      } else {
+        pkg.packageManager = 'pnpm@*'
+      }
     }
 
     if (opts.js) {
@@ -90,7 +106,7 @@ sade('@hyrious/create', true)
       fs.mkdirSync('src', { recursive: true })
       writeFile('src/index.ts', 'export let a = 1\n')
       if (opts.cli) {
-        writeFile('src/cli.ts', 'console.log(1)\n')
+        writeFile('src/cli.ts', 'console.log(1)\n\n// "#!/usr/bin/env node" will make this file be detected as js by github.\n')
         pkg.bin = 'dist/cli.js'
       }
       pkg.main = 'dist/index.js'
@@ -142,33 +158,60 @@ jobs:
       group: \${{ github.workflow }}-\${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - uses: actions/checkout@v4${opts.npm ? '' : `
+      - uses: pnpm/action-setup@v4${opts.corepack ? '' : `
         with:
-          version: latest
+          version: latest`}`}
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           registry-url: "https://registry.npmjs.org"
-          cache: pnpm
-      - run: |
+          cache: ${opts.npm ? 'npm' : 'pnpm'}
+      - run: |${opts.npm ? `
+          npm ci
+          npm run build` : `
           pnpm install
-          pnpm build
-      - run: pnpm publish --provenance --access public --no-git-checks
+          pnpm build`}${opts.npm ? `
+      - run: npm publish --provenance --access public` : `
+      - run: pnpm publish --provenance --access public --no-git-checks`}
         env:
           NODE_AUTH_TOKEN: \${{ secrets.NPM_TOKEN }}\n`)
     }
 
-    writeFile('README.md', `# @hyrious/${name}
+    writeFile('README.md', `# @${userLower}/${name}
 
 ${name}.
 
 ## License
 
-MIT @ [hyrious](https://github.com/hyrious)\n`)
+MIT @ [${user}](https://github.com/${userLower})\n`)
 
-    if (Object.keys(pkg.devDependencies).length > 0) {
-      console.info('resolving', Object.keys(pkg.devDependencies))
+    writeFile('LICENSE.txt', `MIT License
+
+Copyright (c) ${new Date().getFullYear()} ${user}
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+`)
+
+    if (Object.keys(pkg.devDependencies).length > 0 || pkg.packageManager) {
+      const packages = Object.keys(pkg.devDependencies).concat(['pnpm'])
+      console.info('resolving', packages)
 
       // https://github.com/antfu/fast-npm-meta#-resolve-multiple-packages
       const latestVersions = async (names) => {
@@ -199,7 +242,11 @@ MIT @ [hyrious](https://github.com/hyrious)\n`)
         return deps
       }
 
-      const versions = await latestVersions(Object.keys(pkg.devDependencies))
+      const versions = await latestVersions(packages)
+      if (pkg.packageManager && versions.pnpm) {
+        pkg.packageManager = `pnpm@${versions.pnpm.slice(1)}`
+        delete versions.pnpm
+      }
       Object.assign(pkg.devDependencies, versions)
 
       // Check if done right
@@ -210,12 +257,14 @@ MIT @ [hyrious](https://github.com/hyrious)\n`)
       }
     }
 
-    writeFile('package.json', JSON.stringify(sort_package_json(pkg), null, 2) + '\n')
+    writeFile('package.json', sortJSON(pkg))
+
+    const pm = opts.npm ? 'npm i' : 'pnpm add'
 
     console.log()
     console.log('next steps:')
-    console.log('npx @hyrious/license mit # Create LICENSE.txt, remember to update pkg.license')
-    console.log('npm i -D esbuild         # Define your build tool')
-    console.log('npm i -D eslint prettier # Define your linter / formatter')
+    console.log('npx @hyrious/license mit # Update LICENSE.txt, remember to update pkg.license')
+    console.log(pm + ' -D esbuild         # Define your build tool')
+    console.log(pm + ' -D eslint prettier # Define your linter / formatter')
   })
   .parse(process.argv)
