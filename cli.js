@@ -210,7 +210,8 @@ SOFTWARE.
 `)
 
     if (Object.keys(pkg.devDependencies).length > 0 || pkg.packageManager) {
-      const packages = Object.keys(pkg.devDependencies).concat(['pnpm'])
+      const packages = Object.keys(pkg.devDependencies)
+      if (pkg.packageManager) packages.push('pnpm')
       console.info('resolving', packages)
 
       // https://github.com/antfu/fast-npm-meta#-resolve-multiple-packages
