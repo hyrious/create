@@ -37,7 +37,7 @@ sade('@hyrious/create', true)
   .version(JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version)
   .option('--js', 'Use JavaScript', false)
   .option('--cli', 'Add CLI entry point', false)
-  .option('--npm', 'Use npm instead of pnpm', false)
+  .option('--pnpm', 'Use pnpm instead of npm', false)
   .option('--vite', 'Install Vite', false)
   .option('--dual', 'Use ESM + CJS', false)
   .option('--author', 'Set the "author" field', 'hyrious <hyrious@outlook.com>')
@@ -51,6 +51,8 @@ sade('@hyrious/create', true)
       process.exitCode = 1
       return
     }
+
+    if (!opts.npm) opts.npm = !opts.pnpm
 
     const writeFile = (name, data) => {
       console.log('create', name)
@@ -88,7 +90,7 @@ sade('@hyrious/create', true)
 
     if (opts.corepack) {
       if (opts.npm) {
-        console.warn('--corepack has no effect with --npm')
+        console.warn('--corepack has no effect with npm, append --pnpm to enable it')
       } else {
         pkg.packageManager = 'pnpm@*'
       }
@@ -108,6 +110,7 @@ sade('@hyrious/create', true)
       if (opts.cli) {
         writeFile('src/cli.ts', 'console.log(1)\n\n// "#!/usr/bin/env node" will make this file be detected as js by github.\n')
         pkg.bin = 'dist/cli.js'
+        pkg.devDependencies['@types/node'] = '*'
       }
       pkg.main = 'dist/index.js'
       if (opts.dual) {
