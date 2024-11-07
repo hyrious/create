@@ -167,7 +167,7 @@ jobs:
           version: latest`}`}
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: lts/*
           registry-url: "https://registry.npmjs.org"
           cache: ${opts.npm ? 'npm' : 'pnpm'}
       - run: |${opts.npm ? `
