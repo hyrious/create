@@ -52,10 +52,13 @@ sade('@hyrious/create', true)
       return
     }
 
+    const win = process.platform === 'win32'
+
     if (!opts.npm) opts.npm = !opts.pnpm
 
     const writeFile = (name, data) => {
       console.log('create', name)
+      if (win) data = data.replaceAll(/\r?\n/g, '\r\n')
       fs.writeFileSync(name, data)
     }
 
@@ -167,7 +170,7 @@ jobs:
           version: latest`}`}
       - uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: "lts/*"
           registry-url: "https://registry.npmjs.org"
           cache: ${opts.npm ? 'npm' : 'pnpm'}
       - run: |${opts.npm ? `
