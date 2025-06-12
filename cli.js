@@ -2,6 +2,7 @@
 import sade from 'sade'
 import fs from 'node:fs'
 import path from 'node:path'
+import cp from 'node:child_process'
 import { sortJSON } from '@hyrious/sort-package-json'
 
 // Base files:
@@ -35,6 +36,8 @@ import { sortJSON } from '@hyrious/sort-package-json'
 //
 sade('@hyrious/create', true)
   .version(JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version)
+  .option('-i, --install', 'Run `npm install` afterwards', false)
+  .option('--mirror', 'Secretly use npmmirror in `npm install`', false)
   .option('--js', 'Use JavaScript', false)
   .option('--cli', 'Add CLI entry point', false)
   .option('--pnpm', 'Use pnpm instead of npm', false)
@@ -222,7 +225,7 @@ SOFTWARE.
 
       // https://github.com/antfu/fast-npm-meta#-resolve-multiple-packages
       const latestVersions = async (names) => {
-        const payload = names.map(name => encodeURIComponent(name)).join('+')
+        const payload = encodeURIComponent(names.join('+'))
         const response = await fetch('https://npm.antfu.dev/' + payload)
         const data = await response.json()
         if (response.ok) {
@@ -265,6 +268,22 @@ SOFTWARE.
     }
 
     writeFile('package.json', sortJSON(pkg))
+    if (opts.install) {
+      let bin = opts.npm ? 'npm' : 'pnpm'
+      if (win) bin += '.cmd';
+      let env = { ...process.env }
+      if (opts.mirror) env.NPM_CONFIG_REGISTRY = 'https://registry.npmmirror.com';
+      process.exitCode = cp.spawnSync(bin, ['install'], { env, stdio: 'inherit' }).status
+      if (opts.mirror) {
+        if (opts.npm) {
+          let contents = fs.readFileSync('package-lock.json', 'utf8')
+          contents = contents.replaceAll(env.NPM_CONFIG_REGISTRY, 'https://registry.npmjs.org')
+          fs.writeFileSync('package-lock.json', contents)
+        } else {
+          console.warn('No support for replacing mirror urls in pnpm-lock.yaml for now')
+        }
+      }
+    }
 
     const pm = opts.npm ? 'npm i' : 'pnpm add'
 
