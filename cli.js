@@ -37,15 +37,16 @@ import { sortJSON } from '@hyrious/sort-package-json'
 sade('@hyrious/create', true)
   .version(JSON.parse(fs.readFileSync(new URL('./package.json', import.meta.url), 'utf8')).version)
   .option('-i, --install', 'Run `npm install` afterwards', false)
-  .option('--mirror', 'Secretly use npmmirror in `npm install`', false)
+  .option('--mirror', 'Secretly use npmmirror in `npm install`, implies --install', false)
   .option('--js', 'Use JavaScript', false)
   .option('--cli', 'Add CLI entry point', false)
   .option('--pnpm', 'Use pnpm instead of npm', false)
+  .option('--pnpm-better-defaults', 'Adopt github.com/pnpm/better-defaults, implies --pnpm', false)
   .option('--vite', 'Install Vite', false)
   .option('--dual', 'Use ESM + CJS', false)
   .option('--author', 'Set the "author" field', 'hyrious <hyrious@outlook.com>')
   .option('--public', 'Add workflows', false)
-  .option('--corepack', 'Use corepack, only work without --npm', false)
+  .option('--corepack', 'Use corepack, only work with --pnpm', false)
   .describe('Create a new project.')
   .action(async function hyrious_create_package(opts) {
     const cwd = process.cwd()
@@ -57,7 +58,10 @@ sade('@hyrious/create', true)
 
     const win = process.platform === 'win32'
 
+    if (!opts.npm && opts['pnpm-better-defaults']) opts.pnpm = true
     if (!opts.npm) opts.npm = !opts.pnpm
+
+    if (opts.mirror) opts.install = true
 
     const writeFile = (name, data) => {
       console.log('create', name)
@@ -268,6 +272,25 @@ SOFTWARE.
     }
 
     writeFile('package.json', sortJSON(pkg))
+
+    if (opts['pnpm-better-defaults']) {
+      const registry = opts.mirror ? 'https://registry.npmmirror.com' : 'https://registry.npmjs.org'
+      const hashes = { '@pnpm/better-defaults': '', '@pnpm/trusted-deps': '' }
+      for (const name in hashes) {
+        const data = await fetch(`${registry}/${name}`).then(r => r.json())
+        const version = data['dist-tags'].latest
+        const meta = data.versions[version]
+        hashes[name] = version + '+' + meta.dist.integrity
+      }
+      writeFile('pnpm-workspace.yaml', `
+configDependencies:
+  '@pnpm/better-defaults': ${hashes['@pnpm/better-defaults']}
+  '@pnpm/trusted-deps':  ${hashes['@pnpm/trusted-deps']}
+onlyBuiltDependenciesFile: node_modules/.pnpm-config/@pnpm/trusted-deps/allow.json
+pnpmfile: node_modules/.pnpm-config/@pnpm/better-defaults/pnpmfile.cjs
+`.trimStart())
+    }
+
     if (opts.install) {
       let bin = opts.npm ? 'npm' : 'pnpm'
       if (win) bin += '.cmd';
@@ -276,11 +299,11 @@ SOFTWARE.
       process.exitCode = cp.spawnSync(bin, ['install'], { env, stdio: 'inherit' }).status
       if (opts.mirror) {
         if (opts.npm) {
-          let contents = fs.readFileSync('package-lock.json', 'utf8')
+          const lockfile = 'package-lock.json'
+          let contents = fs.readFileSync(lockfile, 'utf8')
           contents = contents.replaceAll(env.NPM_CONFIG_REGISTRY, 'https://registry.npmjs.org')
-          fs.writeFileSync('package-lock.json', contents)
-        } else {
-          console.warn('No support for replacing mirror urls in pnpm-lock.yaml for now')
+          console.log('update', lockfile)
+          fs.writeFileSync(lockfile, contents)
         }
       }
     }
