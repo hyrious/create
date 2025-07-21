@@ -41,7 +41,7 @@ sade('@hyrious/create', true)
   .option('--js', 'Use JavaScript', false)
   .option('--cli', 'Add CLI entry point', false)
   .option('--pnpm', 'Use pnpm instead of npm', false)
-  .option('--pnpm-better-defaults', 'Adopt github.com/pnpm/better-defaults, implies --pnpm', false)
+  .option('--pnpm-better-defaults', 'Adopt @pnpm/plugin-better-defaults, implies --pnpm', false)
   .option('--vite', 'Install Vite', false)
   .option('--dual', 'Use ESM + CJS', false)
   .option('--author', 'Set the "author" field', 'hyrious <hyrious@outlook.com>')
@@ -225,7 +225,7 @@ SOFTWARE.
     if (Object.keys(pkg.devDependencies).length > 0 || pkg.packageManager) {
       const packages = Object.keys(pkg.devDependencies)
       if (pkg.packageManager) packages.push('pnpm')
-      console.info('resolving', packages)
+      console.info('resolving', ...packages)
 
       // https://github.com/antfu/fast-npm-meta#-resolve-multiple-packages
       const latestVersions = async (names) => {
@@ -275,7 +275,7 @@ SOFTWARE.
 
     if (opts['pnpm-better-defaults']) {
       const registry = opts.mirror ? 'https://registry.npmmirror.com' : 'https://registry.npmjs.org'
-      const hashes = { '@pnpm/better-defaults': '', '@pnpm/trusted-deps': '' }
+      const hashes = { '@pnpm/plugin-better-defaults': '', '@pnpm/plugin-trusted-deps': '' }
       for (const name in hashes) {
         const data = await fetch(`${registry}/${name}`).then(r => r.json())
         const version = data['dist-tags'].latest
@@ -284,10 +284,12 @@ SOFTWARE.
       }
       writeFile('pnpm-workspace.yaml', `
 configDependencies:
-  '@pnpm/better-defaults': ${hashes['@pnpm/better-defaults']}
-  '@pnpm/trusted-deps':  ${hashes['@pnpm/trusted-deps']}
-onlyBuiltDependenciesFile: node_modules/.pnpm-config/@pnpm/trusted-deps/allow.json
-pnpmfile: node_modules/.pnpm-config/@pnpm/better-defaults/pnpmfile.cjs
+  '@pnpm/plugin-better-defaults': ${hashes['@pnpm/plugin-better-defaults']}
+  '@pnpm/plugin-trusted-deps':  ${hashes['@pnpm/plugin-trusted-deps']}
+
+onlyBuiltDependenciesFile: node_modules/.pnpm-config/@pnpm/plugin-trusted-deps/allow.json
+
+pnpmfile: node_modules/.pnpm-config/@pnpm/plugin-better-defaults/pnpmfile.cjs
 `.trimStart())
     }
 
@@ -296,8 +298,9 @@ pnpmfile: node_modules/.pnpm-config/@pnpm/better-defaults/pnpmfile.cjs
       if (win) bin += '.cmd';
       let env = { ...process.env }
       if (opts.mirror) env.NPM_CONFIG_REGISTRY = 'https://registry.npmmirror.com';
-      process.exitCode = cp.spawnSync(bin, ['install'], { env, stdio: 'inherit' }).status
+      process.exitCode = cp.spawnSync(bin, ['install'], { env, stdio: 'inherit', shell: win }).status
       if (opts.mirror) {
+        console.info('hint: NPM_CONFIG_REGISTRY=https://registry.npmmirror.com')
         if (opts.npm) {
           const lockfile = 'package-lock.json'
           let contents = fs.readFileSync(lockfile, 'utf8')
