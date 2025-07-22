@@ -285,7 +285,7 @@ SOFTWARE.
       writeFile('pnpm-workspace.yaml', `
 configDependencies:
   '@pnpm/plugin-better-defaults': ${hashes['@pnpm/plugin-better-defaults']}
-  '@pnpm/plugin-trusted-deps':  ${hashes['@pnpm/plugin-trusted-deps']}
+  '@pnpm/plugin-trusted-deps': ${hashes['@pnpm/plugin-trusted-deps']}
 `.trimStart())
     }
 
