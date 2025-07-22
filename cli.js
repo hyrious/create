@@ -286,10 +286,6 @@ SOFTWARE.
 configDependencies:
   '@pnpm/plugin-better-defaults': ${hashes['@pnpm/plugin-better-defaults']}
   '@pnpm/plugin-trusted-deps':  ${hashes['@pnpm/plugin-trusted-deps']}
-
-onlyBuiltDependenciesFile: node_modules/.pnpm-config/@pnpm/plugin-trusted-deps/allow.json
-
-pnpmfile: node_modules/.pnpm-config/@pnpm/plugin-better-defaults/pnpmfile.cjs
 `.trimStart())
     }
 
