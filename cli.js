@@ -46,6 +46,7 @@ sade('@hyrious/create', true)
   .option('--dual', 'Use ESM + CJS', false)
   .option('--author', 'Set the "author" field', 'hyrious <hyrious@outlook.com>')
   .option('--public', 'Add workflows', false)
+  .option('--oidc', 'https://docs.npmjs.com/trusted-publishers')
   .option('--corepack', 'Use corepack, only work with --pnpm', false)
   .describe('Create a new project.')
   .action(async function hyrious_create_package(opts) {
@@ -62,6 +63,7 @@ sade('@hyrious/create', true)
     if (!opts.npm) opts.npm = !opts.pnpm
 
     if (opts.mirror) opts.install = true
+    if (opts.oidc) opts.public = true
 
     const writeFile = (name, data) => {
       console.log('create', name)
@@ -179,16 +181,18 @@ jobs:
         with:
           node-version: "lts/*"
           registry-url: "https://registry.npmjs.org"
-          cache: ${opts.npm ? 'npm' : 'pnpm'}
+          cache: ${opts.npm ? 'npm' : 'pnpm'}${opts.oidc ? `
+      # TODO: remove it when Node.js v24 is LTS
+      - run: npm install -g npm@latest` : ''}
       - run: |${opts.npm ? `
           npm ci
           npm run build` : `
           pnpm install
           pnpm build`}${opts.npm ? `
       - run: npm publish --provenance --access public` : `
-      - run: pnpm publish --provenance --access public --no-git-checks`}
+      - run: pnpm publish --provenance --access public --no-git-checks`}${opts.oidc ? '' : `
         env:
-          NODE_AUTH_TOKEN: \${{ secrets.NPM_TOKEN }}\n`)
+          NODE_AUTH_TOKEN: \${{ secrets.NPM_TOKEN }}`}\n`)
     }
 
     writeFile('README.md', `# @${userLower}/${name}
