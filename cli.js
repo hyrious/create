@@ -31,7 +31,7 @@ import { sortJSON } from '@hyrious/sort-package-json'
 //    main.{js,ts}        // '.js' if '--js' else '.ts'
 //    index.html
 //
-// If '--public', add:
+// If '--public', add:    // oidc is always enabled
 //    .github/workflows/npm-publish.yml
 //
 sade('@hyrious/create', true)
@@ -64,6 +64,7 @@ sade('@hyrious/create', true)
 
     if (opts.mirror) opts.install = true
     if (opts.oidc) opts.public = true
+    opts.oidc = true
 
     const writeFile = (name, data) => {
       console.log('create', name)
@@ -160,11 +161,12 @@ sade('@hyrious/create', true)
 
 on:
   push:
-    tags: "*"
+    tags:
+      - "*"
   workflow_dispatch:
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -173,24 +175,22 @@ jobs:
       group: \${{ github.workflow }}-\${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4${opts.npm ? '' : `
+      - uses: actions/checkout@v5${opts.npm ? '' : `
       - uses: pnpm/action-setup@v4${opts.corepack ? '' : `
         with:
           version: latest`}`}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "lts/*"
           registry-url: "https://registry.npmjs.org"
-          cache: ${opts.npm ? 'npm' : 'pnpm'}${opts.oidc ? `
-      # TODO: remove it when Node.js v24 is LTS
-      - run: npm install -g npm@latest` : ''}
+          package-manager-cache: false
       - run: |${opts.npm ? `
           npm ci
           npm run build` : `
           pnpm install
           pnpm build`}${opts.npm ? `
-      - run: npm publish --provenance --access public` : `
-      - run: pnpm publish --provenance --access public --no-git-checks`}${opts.oidc ? '' : `
+      - run: npm publish --access public` : `
+      - run: pnpm publish --access public --no-git-checks`}${opts.oidc ? '' : `
         env:
           NODE_AUTH_TOKEN: \${{ secrets.NPM_TOKEN }}`}\n`)
     }

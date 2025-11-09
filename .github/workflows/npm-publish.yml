@@ -2,7 +2,8 @@ name: Node.js Package
 
 on:
   push:
-    tags: "*"
+    tags:
+      - "*"
   workflow_dispatch:
 
 jobs:
@@ -15,11 +16,11 @@ jobs:
       group: ${{ github.workflow }}-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
         with:
           node-version: "lts/*"
           registry-url: "https://registry.npmjs.org"
-      - run: npm install -g npm@latest
+          package-manager-cache: false
       - run: npm install
-      - run: npm publish --provenance --access public
+      - run: npm publish
