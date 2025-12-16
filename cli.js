@@ -175,7 +175,7 @@ jobs:
       group: \${{ github.workflow }}-\${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v5${opts.npm ? '' : `
+      - uses: actions/checkout@v6${opts.npm ? '' : `
       - uses: pnpm/action-setup@v4${opts.corepack ? '' : `
         with:
           version: latest`}`}
