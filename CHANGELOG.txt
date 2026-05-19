@@ -1,0 +1,7 @@
+v0.3.0
+- Remove `--mirror`, use `-i=mirror` instead.
+- Add `--node` to extend `@hyrious/configs/tsconfig.node.json`.
+- Make `--cli` imply `--node`.
+- Merge `--pnpm-better-defaults` into `--pnpm`.
+- Make `--public` use npm OIDC, add `--public=github` for GitHub Packages.
+- Add `--bun` to use `@types/bun` with `--cli` and `bun install` with `-i`.
