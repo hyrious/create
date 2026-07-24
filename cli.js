@@ -177,11 +177,11 @@ jobs:
       group: \${{ github.workflow }}-\${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v6${opts.npm ? '' : `
-      - uses: pnpm/action-setup@v4${opts.corepack ? '' : `
+      - uses: actions/checkout@v7${opts.npm ? '' : `
+      - uses: pnpm/action-setup@v6${opts.corepack ? '' : `
         with:
           version: latest`}`}
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: "lts/*"
           registry-url: "${registry}"${opts.github ? `
@@ -320,6 +320,9 @@ configDependencies:
     console.log()
     console.log('next steps:')
     console.log('npx @hyrious/license mit # Update LICENSE.txt, remember to update pkg.license')
+    if (!opts.bun && opts.npm) {
+      console.log('npm pkg set allowScripts.esbuild=true --json')
+    }
     console.log(pm + ' -D esbuild         # Define your build tool')
     console.log(pm + ' -D eslint prettier # Define your linter / formatter')
   })
