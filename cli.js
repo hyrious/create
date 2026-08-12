@@ -159,6 +159,9 @@ sade('@hyrious/create', true)
     if (opts.public) {
       fs.mkdirSync('.github/workflows', { recursive: true })
       const registry = opts.github ? 'https://npm.pkg.github.com' : 'https://registry.npmjs.org'
+      if (opts.pnpm && opts.github) {
+        console.warn('pnpm/setup does not support registry: https://github.com/pnpm/setup/issues/13')
+      }
       writeFile('.github/workflows/npm-publish.yml', `name: Node.js Package
 
 on:
@@ -177,21 +180,18 @@ jobs:
       group: \${{ github.workflow }}-\${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v7${opts.npm ? '' : `
-      - uses: pnpm/action-setup@v6${opts.corepack ? '' : `
-        with:
-          version: latest`}`}
+      - uses: actions/checkout@v7${opts.npm ? `
       - uses: actions/setup-node@v7
         with:
-          node-version: "lts/*"
-          registry-url: "${registry}"${opts.github ? `
-          scope: "@${userLower}"` : ''}
-          package-manager-cache: false
-      - run: |${opts.npm ? `
-          npm ci
-          npm run build` : `
-          pnpm install
-          pnpm build`}${opts.npm ? `
+          node-version: 'latest'
+          registry-url: '${registry}'${opts.github ? `
+          scope: '@${userLower}'` : ''}
+          package-manager-cache: false` : `
+      - uses: pnpm/setup@v2${opts.corepack ? '' : `
+        with:
+          version: 'latest'
+          runtime: 'node@lts'`}`}
+      - run: ${opts.npm ? 'npm ci && npm run build' : 'pnpm build'}${opts.npm ? `
       - run: npm publish${opts.github ? '' : ' --access public'}` : `
       - run: pnpm publish${opts.github ? '' : ' --access public'} --no-git-checks`}${opts.github ? `
         env:
